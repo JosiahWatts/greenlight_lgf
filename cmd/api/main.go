@@ -1,5 +1,8 @@
 package main
 
+// pg 68
+// sending Eror Messaes
+
 import (
 	"flag"
 	"fmt"
