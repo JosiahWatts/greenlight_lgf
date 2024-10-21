@@ -110,11 +110,13 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// use pointers for the title, year, and runtime fields
+	// so we can handle partial updates
 	var input struct {
-		Title   string       `json:"title"`
-		Year    int32        `json:"year"`
-		Runtime data.Runtime `json:"runtime"`
-		Genres  []string     `json:"genres"`
+		Title   *string       `json:"title"`
+		Year    *int32        `json:"year"`
+		Runtime *data.Runtime `json:"runtime"`
+		Genres  []string      `json:"genres"`
 	}
 
 	// Read the JSON request body data into the input struct.
@@ -124,10 +126,34 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	movie.Title = input.Title
-	movie.Year = input.Year
-	movie.Runtime = input.Runtime
-	movie.Genres = input.Genres
+	// old way
+	// movie.Title = input.Title
+	// movie.Year = input.Year
+	// movie.Runtime = input.Runtime
+	// movie.Genres = input.Genres
+
+	// if the input.Title value is nil, we know that no corresponding title key
+	// value pair was provided in the JSON body. So we move on and leave the move
+	// record unchanged. Otherwise, we update the movie record with the new title
+	// value. Importantly, because input.Title is now a pointer to a string, we need
+	// to dereference the pointer using the * operator to get the underlying value
+	// before assiging it to our record.
+
+	if input.Title != nil {
+		movie.Title = *input.Title
+	}
+
+	if input.Year != nil {
+		movie.Year = *input.Year
+	}
+
+	if input.Runtime != nil {
+		movie.Runtime = *input.Runtime
+	}
+
+	if input.Genres != nil {
+		movie.Genres = input.Genres // we don't need to dereference a slice!
+	}
 
 	// Validate the updated movie record, sending the client a 422 Unprocessable Entity
 	// response if any checks fail
@@ -140,8 +166,12 @@ func (app *application) updateMovieHandler(w http.ResponseWriter, r *http.Reques
 
 	err = app.models.Movies.Update(movie)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"movie": movie}, nil)

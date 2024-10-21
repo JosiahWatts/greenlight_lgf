@@ -9,6 +9,7 @@ import (
 // from our Get() method when looking up a movie that DNE
 var (
 	ErrRecordNotFound = errors.New("record not found")
+	ErrEditConflict   = errors.New("edit conflict")
 )
 
 // create a models struct which wraps the movie model
